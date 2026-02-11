@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lsrd_pro/core/theme/app_theme.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
+// import 'dart:io';
 import 'lsr_review_screen.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;   
 
 class LSRCreateScreen extends StatefulWidget {
   const LSRCreateScreen({super.key});
@@ -27,6 +28,149 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
   String? _selectedBranch;
   String? _selectedReportFormat;
   String? _selectedPropertyType;
+
+  // Rajasthan Bank Branches Data
+final Map<String, List<Map<String, String>>> _rajasthanBranches = {
+  'State Bank of India': [
+    {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SINDHI CAMP, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'BAPU NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SODALA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VIDYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SITAPURA INDUSTRIAL AREA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SANGANER, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'PRATAP NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'GOPALPURA BYPASS, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'JOHRI BAZAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MAIN BRANCH, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'SHASTRI NAGAR, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'RATANADA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'CHOPASANI ROAD, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'MAIN BRANCH, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'SUKHADIA CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'MAIN BRANCH, KOTA', 'district': 'KOTA'},
+    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+    {'name': 'VIGYAN NAGAR, KOTA', 'district': 'KOTA'},
+    {'name': 'GUMANPURA, KOTA', 'district': 'KOTA'},
+    {'name': 'MAIN BRANCH, AJMER', 'district': 'AJMER'},
+    {'name': 'VAISHALI NAGAR, AJMER', 'district': 'AJMER'},
+    {'name': 'NASIRABAD, AJMER', 'district': 'AJMER'},
+    {'name': 'MAIN BRANCH, BIKANER', 'district': 'BIKANER'},
+    {'name': 'RANI BAZAR, BIKANER', 'district': 'BIKANER'},
+    {'name': 'SADUL GANJ, BIKANER', 'district': 'BIKANER'},
+    {'name': 'MAIN BRANCH, ALWAR', 'district': 'ALWAR'},
+    {'name': 'BHIWADI, ALWAR', 'district': 'ALWAR'},
+    {'name': 'NEEMRANA, ALWAR', 'district': 'ALWAR'},
+  ],
+  'HDFC Bank': [
+    {'name': 'ASHOK MARG, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VIDHYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'AJMER ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'HIGH COURT ROAD, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+  ],
+  'ICICI Bank': [
+    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VIDHYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+  ],
+  'Punjab National Bank': [
+    {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SINDHI CAMP, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+  ],
+  'Bank of Baroda': [
+    {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+  ],
+  'Axis Bank': [
+    {'name': 'ASHOK MARG, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+  ],
+};
+
+// Get available branches for selected bank
+List<String> get _availableBranches {
+  if (_selectedBank == null || !_rajasthanBranches.containsKey(_selectedBank)) {
+    return [];
+  }
+  return _rajasthanBranches[_selectedBank]!
+      .map((branch) => branch['name']!)
+      .toList();
+}
+
+// Get bank names
+List<String> get _bankNames => _rajasthanBranches.keys.toList()..sort();
   
   // Document upload status with file details
   Map<String, DocumentUpload> _uploadedDocuments = {
@@ -48,13 +192,23 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
     super.dispose();
   }
 
+// Handle bank selection change
+void _onBankChanged(String? newBank) {
+  setState(() {
+    _selectedBank = newBank;
+    // Reset branch selection when bank changes
+    _selectedBranch = null;
+  });
+}
+
   Future<void> _pickDocument(String documentType) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-        allowMultiple: false,
-      );
+  type: FileType.custom,
+  allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+  allowMultiple: false,
+  withData: kIsWeb,  
+);
 
       if (result != null && result.files.single.path != null) {
         setState(() {
@@ -215,22 +369,27 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
           ),
           const SizedBox(height: 24),
           _buildDropdownField(
-            'Bank Name',
-            'Select bank',
-            Icons.account_balance,
-            ['HDFC Bank', 'SBI', 'ICICI Bank', 'Axis Bank', 'Punjab National Bank', 'Bank of Baroda'],
-            _selectedBank,
-            (value) => setState(() => _selectedBank = value),
-          ),
-          const SizedBox(height: 16),
-          _buildDropdownField(
-            'Branch',
-            'Select branch',
-            Icons.location_on,
-            ['Andheri', 'Bandra', 'Juhu', 'Powai', 'Malad', 'Borivali'],
-            _selectedBranch,
-            (value) => setState(() => _selectedBranch = value),
-          ),
+  'Bank Name',
+  'Select bank',
+  Icons.account_balance,
+  _bankNames,  
+  _selectedBank,
+  _onBankChanged,  
+),
+const SizedBox(height: 16),
+_buildDropdownField(
+  'Branch',
+  _selectedBank == null ? 'Select bank first' : 'Select branch',  
+  Icons.location_on,
+  _availableBranches,  
+  _selectedBranch,
+  (value) => setState(() => _selectedBranch = value),
+  enabled: _selectedBank != null,  
+),
+if (_selectedBranch != null) ...[  
+  const SizedBox(height: 12),
+  _buildBranchInfoCard(),
+],
           const SizedBox(height: 16),
           _buildDropdownField(
             'Report Format',
@@ -244,6 +403,58 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
       ),
     );
   }
+
+  Widget _buildBranchInfoCard() {
+  if (_selectedBank == null || _selectedBranch == null) return const SizedBox.shrink();
+  
+  // Find district for selected branch
+  String? district;
+  final branches = _rajasthanBranches[_selectedBank];
+  if (branches != null) {
+    final branchData = branches.firstWhere(
+      (b) => b['name'] == _selectedBranch,
+      orElse: () => {'name': '', 'district': 'N/A'},
+    );
+    district = branchData['district'];
+  }
+
+  return Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: AppTheme.accentBlue.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppTheme.accentBlue.withOpacity(0.3)),
+    ),
+    child: Row(
+      children: [
+        Icon(Icons.info_outline, color: AppTheme.accentBlue),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Selected Branch Details',
+                style: GoogleFonts.roboto(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.accentBlue,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'District: ${district ?? 'N/A'}',
+                style: GoogleFonts.roboto(
+                  fontSize: 13,
+                  color: AppTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildDocumentUploadStep() {
     return SingleChildScrollView(
@@ -719,28 +930,31 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
     );
   }
 
-  Widget _buildDropdownField(
-    String label,
-    String hint,
-    IconData icon,
-    List<String> items,
-    String? value,
-    Function(String?) onChanged,
-  ) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: AppTheme.textMuted),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+Widget _buildDropdownField(
+  String label,
+  String hint,
+  IconData icon,
+  List<String> items,
+  String? value,
+  Function(String?) onChanged, {
+  bool enabled = true,  
+}) {
+  return DropdownButtonFormField<String>(
+    value: value,
+    decoration: InputDecoration(
+      labelText: label,
+      prefixIcon: Icon(icon, color: enabled ? AppTheme.textMuted : Colors.grey.shade400),  // 👈 CHANGED
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
-      hint: Text(hint),
-      items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-      onChanged: onChanged,
-    );
-  }
+      filled: !enabled,  
+      fillColor: !enabled ? Colors.grey.shade100 : null,  
+    ),
+    hint: Text(hint),
+    items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+    onChanged: enabled ? onChanged : null,  
+  );
+}
 }
 
 // Document Upload Model
@@ -749,11 +963,16 @@ class DocumentUpload {
   final String fileName;
   final String filePath;
   final int fileSize;
+  final dynamic fileBytes;  
 
   DocumentUpload({
     this.isUploaded = false,
     this.fileName = '',
     this.filePath = '',
     this.fileSize = 0,
+    this.fileBytes,  
   });
+
+  bool get isWebUpload => fileBytes != null;  
+  bool get isMobileUpload => filePath.isNotEmpty;  
 }
