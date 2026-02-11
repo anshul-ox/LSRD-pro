@@ -3,6 +3,7 @@ import 'package:lsrd_pro/core/theme/app_theme.dart';
 import 'package:lsrd_pro/core/widgets/animated_background.dart';
 import 'package:lsrd_pro/core/widgets/custom_text_field.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -240,6 +241,56 @@ class _LoginScreenState extends State<LoginScreen>
                             fontWeight: FontWeight.w600,
                           ),
                         ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      'Or continue with',
+                      style: GoogleFonts.roboto(
+                        color: AppTheme.textMuted,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: Colors.grey.shade300)),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: () {},
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: Colors.grey.shade300),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SvgPicture.asset(
+                        'lib/images/google_logo.svg',
+                        width: 24,
+                        height: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Sign in with Google',
+                        style: GoogleFonts.roboto(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 24),
