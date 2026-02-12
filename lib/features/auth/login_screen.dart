@@ -4,6 +4,8 @@ import 'package:lsrd_pro/core/widgets/animated_background.dart';
 import 'package:lsrd_pro/core/widgets/custom_text_field.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,13 +53,55 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  void _login() {
+  Future<void> _login() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() => _isLoading = false);
-        Navigator.pushReplacementNamed(context, '/dashboard');
-      });
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
+      } on FirebaseAuthException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.message ?? 'Login failed')));
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    if (_emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your email to reset password'),
+        ),
+      );
+      return;
+    }
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password reset email sent')),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Failed to send reset email')),
+        );
+      }
     }
   }
 
@@ -210,7 +254,7 @@ class _LoginScreenState extends State<LoginScreen>
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () {},
+                  onPressed: _forgotPassword,
                   child: Text(
                     'Forgot Password?',
                     style: GoogleFonts.roboto(
@@ -242,6 +286,37 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                 ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'New User? ',
+                    style: GoogleFonts.roboto(
+                      color: AppTheme.textMuted,
+                      fontSize: 14,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SignupScreen(),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Register now!',
+                      style: GoogleFonts.roboto(
+                        color: AppTheme.primaryPurple,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
               Row(
@@ -334,25 +409,26 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildCredentialRow(String label, String value) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.roboto(
-            color: AppTheme.textSecondary,
-            fontSize: 13,
+      return Row(
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.roboto(
+              color: AppTheme.textSecondary,
+              fontSize: 13,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          value,
-          style: GoogleFonts.roboto(
-            color: AppTheme.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+          const SizedBox(width: 8),
+          Text(
+            value,
+            style: GoogleFonts.roboto(
+              color: AppTheme.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    }
   }
-}
+
