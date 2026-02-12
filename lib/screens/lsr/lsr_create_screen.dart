@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lsrd_pro/core/theme/app_theme.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:lsrd_pro/core/services/api_service.dart';
 // import 'dart:io';
 import 'lsr_review_screen.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;   
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class LSRCreateScreen extends StatefulWidget {
   const LSRCreateScreen({super.key});
@@ -15,162 +16,172 @@ class LSRCreateScreen extends StatefulWidget {
 
 class _LSRCreateScreenState extends State<LSRCreateScreen> {
   int _currentStep = 0;
-  final List<String> _steps = ['Bank & Branch', 'Upload Documents', 'Case Details', 'AI Processing', 'Review & Edit', 'Report'];
+  final List<String> _steps = [
+    'Bank & Branch',
+    'Upload Documents',
+    'Case Details',
+    'AI Processing',
+    'Review & Edit',
+    'Report',
+  ];
 
   // Form data controllers
-  final TextEditingController _applicantNameController = TextEditingController();
-  final TextEditingController _coApplicantNameController = TextEditingController();
+  final TextEditingController _applicantNameController =
+      TextEditingController();
+  final TextEditingController _coApplicantNameController =
+      TextEditingController();
   final TextEditingController _presentOwnerController = TextEditingController();
   final TextEditingController _loanIdController = TextEditingController();
-  
+
   String? _selectedBank;
   String? _selectedBranch;
   String? _selectedReportFormat;
   String? _selectedPropertyType;
 
   // Rajasthan Bank Branches Data
-final Map<String, List<Map<String, String>>> _rajasthanBranches = {
-  'State Bank of India': [
-    {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SINDHI CAMP, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'BAPU NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SODALA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VIDYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SITAPURA INDUSTRIAL AREA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SANGANER, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'PRATAP NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'GOPALPURA BYPASS, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'JOHRI BAZAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MAIN BRANCH, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'SHASTRI NAGAR, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'RATANADA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'CHOPASANI ROAD, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'MAIN BRANCH, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'SUKHADIA CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'MAIN BRANCH, KOTA', 'district': 'KOTA'},
-    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
-    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
-    {'name': 'VIGYAN NAGAR, KOTA', 'district': 'KOTA'},
-    {'name': 'GUMANPURA, KOTA', 'district': 'KOTA'},
-    {'name': 'MAIN BRANCH, AJMER', 'district': 'AJMER'},
-    {'name': 'VAISHALI NAGAR, AJMER', 'district': 'AJMER'},
-    {'name': 'NASIRABAD, AJMER', 'district': 'AJMER'},
-    {'name': 'MAIN BRANCH, BIKANER', 'district': 'BIKANER'},
-    {'name': 'RANI BAZAR, BIKANER', 'district': 'BIKANER'},
-    {'name': 'SADUL GANJ, BIKANER', 'district': 'BIKANER'},
-    {'name': 'MAIN BRANCH, ALWAR', 'district': 'ALWAR'},
-    {'name': 'BHIWADI, ALWAR', 'district': 'ALWAR'},
-    {'name': 'NEEMRANA, ALWAR', 'district': 'ALWAR'},
-  ],
-  'HDFC Bank': [
-    {'name': 'ASHOK MARG, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VIDHYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'AJMER ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'HIGH COURT ROAD, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
-    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
-  ],
-  'ICICI Bank': [
-    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VIDHYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
-    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
-  ],
-  'Punjab National Bank': [
-    {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SINDHI CAMP, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
-  ],
-  'Bank of Baroda': [
-    {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
-    {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
-  ],
-  'Axis Bank': [
-    {'name': 'ASHOK MARG, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
-    {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
-    {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
-    {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
-  ],
-};
+  final Map<String, List<Map<String, String>>> _rajasthanBranches = {
+    'State Bank of India': [
+      {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SINDHI CAMP, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'BAPU NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SODALA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VIDYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SITAPURA INDUSTRIAL AREA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SANGANER, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'PRATAP NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'GOPALPURA BYPASS, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'JOHRI BAZAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MAIN BRANCH, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'SHASTRI NAGAR, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'RATANADA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'CHOPASANI ROAD, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'MAIN BRANCH, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'SUKHADIA CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'MAIN BRANCH, KOTA', 'district': 'KOTA'},
+      {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+      {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+      {'name': 'VIGYAN NAGAR, KOTA', 'district': 'KOTA'},
+      {'name': 'GUMANPURA, KOTA', 'district': 'KOTA'},
+      {'name': 'MAIN BRANCH, AJMER', 'district': 'AJMER'},
+      {'name': 'VAISHALI NAGAR, AJMER', 'district': 'AJMER'},
+      {'name': 'NASIRABAD, AJMER', 'district': 'AJMER'},
+      {'name': 'MAIN BRANCH, BIKANER', 'district': 'BIKANER'},
+      {'name': 'RANI BAZAR, BIKANER', 'district': 'BIKANER'},
+      {'name': 'SADUL GANJ, BIKANER', 'district': 'BIKANER'},
+      {'name': 'MAIN BRANCH, ALWAR', 'district': 'ALWAR'},
+      {'name': 'BHIWADI, ALWAR', 'district': 'ALWAR'},
+      {'name': 'NEEMRANA, ALWAR', 'district': 'ALWAR'},
+    ],
+    'HDFC Bank': [
+      {'name': 'ASHOK MARG, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VIDHYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'AJMER ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'HIGH COURT ROAD, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+      {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+    ],
+    'ICICI Bank': [
+      {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'C-SCHEME, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VIDHYADHAR NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+      {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+    ],
+    'Punjab National Bank': [
+      {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SINDHI CAMP, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+    ],
+    'Bank of Baroda': [
+      {'name': 'MAIN BRANCH, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SITAPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'HIRAN MAGRI, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+      {'name': 'TALWANDI, KOTA', 'district': 'KOTA'},
+    ],
+    'Axis Bank': [
+      {'name': 'ASHOK MARG, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MI ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MALVIYA NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'VAISHALI NAGAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'MANSAROVAR, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'TONK ROAD, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'RAJA PARK, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'JAGATPURA, JAIPUR', 'district': 'JAIPUR'},
+      {'name': 'SARDARPURA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'PAOTA, JODHPUR', 'district': 'JODHPUR'},
+      {'name': 'CHETAK CIRCLE, UDAIPUR', 'district': 'UDAIPUR'},
+      {'name': 'DADABARI, KOTA', 'district': 'KOTA'},
+    ],
+  };
 
-// Get available branches for selected bank
-List<String> get _availableBranches {
-  if (_selectedBank == null || !_rajasthanBranches.containsKey(_selectedBank)) {
-    return [];
+  // Get available branches for selected bank
+  List<String> get _availableBranches {
+    if (_selectedBank == null ||
+        !_rajasthanBranches.containsKey(_selectedBank)) {
+      return [];
+    }
+    return _rajasthanBranches[_selectedBank]!
+        .map((branch) => branch['name']!)
+        .toList();
   }
-  return _rajasthanBranches[_selectedBank]!
-      .map((branch) => branch['name']!)
-      .toList();
-}
 
-// Get bank names
-List<String> get _bankNames => _rajasthanBranches.keys.toList()..sort();
-  
+  // Get bank names
+  List<String> get _bankNames => _rajasthanBranches.keys.toList()..sort();
+
   // Document upload status with file details
   Map<String, DocumentUpload> _uploadedDocuments = {
     'Jamabandi': DocumentUpload(),
@@ -182,6 +193,11 @@ List<String> get _bankNames => _rajasthanBranches.keys.toList()..sort();
   // AI generated data (mock data for demonstration)
   Map<String, dynamic> _aiGeneratedData = {};
 
+  // Analysis State
+  bool _isAnalyzing = false;
+  String _analysisStatus = 'Starting analysis...';
+  int _progressStep = 0;
+
   @override
   void dispose() {
     _applicantNameController.dispose();
@@ -191,23 +207,119 @@ List<String> get _bankNames => _rajasthanBranches.keys.toList()..sort();
     super.dispose();
   }
 
-// Handle bank selection change
-void _onBankChanged(String? newBank) {
-  setState(() {
-    _selectedBank = newBank;
-    // Reset branch selection when bank changes
-    _selectedBranch = null;
-  });
-}
+  Future<void> _startAnalysis() async {
+    if (_isAnalyzing) return;
+
+    setState(() {
+      _isAnalyzing = true;
+      _progressStep = 1;
+      _analysisStatus = 'Uploading and extracting data...';
+    });
+
+    try {
+      // 1. Collect files
+      List<String> filePaths = [];
+      _uploadedDocuments.forEach((key, doc) {
+        if (doc.isUploaded) {
+          filePaths.add(doc.filePath);
+        }
+      });
+
+      if (filePaths.isEmpty) {
+        throw Exception('No documents uploaded');
+      }
+
+      // 2. Call API
+      final result = await ApiService.analyzeDocuments(filePaths, 'demo_user');
+
+      setState(() {
+        _progressStep = 2;
+        _analysisStatus = 'Establishing ownership chain...';
+      });
+      await Future.delayed(
+        const Duration(milliseconds: 800),
+      ); // UI delay for effect
+
+      setState(() {
+        _progressStep = 3;
+        _analysisStatus = 'Cross-validating documents...';
+      });
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      setState(() {
+        _progressStep = 4;
+        _analysisStatus = 'Generating final report...';
+      });
+      await Future.delayed(const Duration(milliseconds: 800));
+
+      // 3. Map result to UI
+      // Note: The backend returns VerificationReport.
+      // We need to map it to the structure _aiGeneratedData expects.
+
+      var doc1 = result['document_1_analysis'] ?? {};
+      var entities = doc1['extracted_entities'] ?? {};
+
+      setState(() {
+        _aiGeneratedData = {
+          'propertyAddress': entities['Address'] ?? 'Extracted from documents',
+          'surveyNumber':
+              entities['Document/Registration numbers'] ?? 'Extracted',
+          'plotArea':
+              'As per deed', // Backend entity extraction might need update to include this
+          'ownershipChain': [
+            // Creating a mock chain from results or just showing the verified data
+            {
+              'owner': entities['Person names'] ?? 'Unknown',
+              'year': '2024',
+              'document': 'Computed',
+            },
+          ],
+          'encumbrances': result['risk_level'] == 'LOW'
+              ? 'No major encumbrances detected'
+              : 'Potential issues found',
+          'legalStatus': result['verification_status'] ?? 'Unknown',
+          'marketValue': 'Pending Valuation',
+          'observations': result['red_flags'] != null
+              ? List<String>.from(result['red_flags'])
+              : [],
+          'recommendations': result['recommendations'] ?? 'Review required',
+        };
+        _isAnalyzing = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Analysis failed: $e'),
+            backgroundColor: AppTheme.error,
+          ),
+        );
+        setState(() {
+          _isAnalyzing = false;
+          // Go back to previous step on error?
+          // _currentStep--;
+        });
+      }
+    }
+  }
+
+  // Handle bank selection change
+  void _onBankChanged(String? newBank) {
+    setState(() {
+      _selectedBank = newBank;
+      // Reset branch selection when bank changes
+      _selectedBranch = null;
+    });
+  }
 
   Future<void> _pickDocument(String documentType) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
-  type: FileType.custom,
-  allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
-  allowMultiple: false,
-  withData: kIsWeb,  
-);
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png'],
+        allowMultiple: false,
+        withData: kIsWeb,
+      );
 
       if (result != null && result.files.single.path != null) {
         setState(() {
@@ -245,7 +357,7 @@ void _onBankChanged(String? newBank) {
     setState(() {
       _uploadedDocuments[documentType] = DocumentUpload();
     });
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text('Document removed'),
@@ -311,12 +423,14 @@ void _onBankChanged(String? newBank) {
   Widget _buildStepIndicator(int index) {
     final isCompleted = index < _currentStep;
     final isCurrent = index == _currentStep;
-    
+
     return Container(
       width: 36,
       height: 36,
       decoration: BoxDecoration(
-        color: isCompleted || isCurrent ? AppTheme.primaryPurple : Colors.grey.shade300,
+        color: isCompleted || isCurrent
+            ? AppTheme.primaryPurple
+            : Colors.grey.shade300,
         shape: BoxShape.circle,
         border: isCurrent ? Border.all(color: Colors.white, width: 3) : null,
       ),
@@ -368,27 +482,27 @@ void _onBankChanged(String? newBank) {
           ),
           const SizedBox(height: 24),
           _buildDropdownField(
-  'Bank Name',
-  'Select bank',
-  Icons.account_balance,
-  _bankNames,  
-  _selectedBank,
-  _onBankChanged,  
-),
-const SizedBox(height: 16),
-_buildDropdownField(
-  'Branch',
-  _selectedBank == null ? 'Select bank first' : 'Select branch',  
-  Icons.location_on,
-  _availableBranches,  
-  _selectedBranch,
-  (value) => setState(() => _selectedBranch = value),
-  enabled: _selectedBank != null,  
-),
-if (_selectedBranch != null) ...[  
-  const SizedBox(height: 12),
-  _buildBranchInfoCard(),
-],
+            'Bank Name',
+            'Select bank',
+            Icons.account_balance,
+            _bankNames,
+            _selectedBank,
+            _onBankChanged,
+          ),
+          const SizedBox(height: 16),
+          _buildDropdownField(
+            'Branch',
+            _selectedBank == null ? 'Select bank first' : 'Select branch',
+            Icons.location_on,
+            _availableBranches,
+            _selectedBranch,
+            (value) => setState(() => _selectedBranch = value),
+            enabled: _selectedBank != null,
+          ),
+          if (_selectedBranch != null) ...[
+            const SizedBox(height: 12),
+            _buildBranchInfoCard(),
+          ],
           const SizedBox(height: 16),
           _buildDropdownField(
             'Report Format',
@@ -404,56 +518,57 @@ if (_selectedBranch != null) ...[
   }
 
   Widget _buildBranchInfoCard() {
-  if (_selectedBank == null || _selectedBranch == null) return const SizedBox.shrink();
-  
-  // Find district for selected branch
-  String? district;
-  final branches = _rajasthanBranches[_selectedBank];
-  if (branches != null) {
-    final branchData = branches.firstWhere(
-      (b) => b['name'] == _selectedBranch,
-      orElse: () => {'name': '', 'district': 'N/A'},
-    );
-    district = branchData['district'];
-  }
+    if (_selectedBank == null || _selectedBranch == null)
+      return const SizedBox.shrink();
 
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: AppTheme.accentBlue.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppTheme.accentBlue.withOpacity(0.3)),
-    ),
-    child: Row(
-      children: [
-        Icon(Icons.info_outline, color: AppTheme.accentBlue),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Selected Branch Details',
-                style: GoogleFonts.roboto(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.accentBlue,
+    // Find district for selected branch
+    String? district;
+    final branches = _rajasthanBranches[_selectedBank];
+    if (branches != null) {
+      final branchData = branches.firstWhere(
+        (b) => b['name'] == _selectedBranch,
+        orElse: () => {'name': '', 'district': 'N/A'},
+      );
+      district = branchData['district'];
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.accentBlue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.accentBlue.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, color: AppTheme.accentBlue),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Selected Branch Details',
+                  style: GoogleFonts.roboto(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.accentBlue,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'District: ${district ?? 'N/A'}',
-                style: GoogleFonts.roboto(
-                  fontSize: 13,
-                  color: AppTheme.textSecondary,
+                const SizedBox(height: 4),
+                Text(
+                  'District: ${district ?? 'N/A'}',
+                  style: GoogleFonts.roboto(
+                    fontSize: 13,
+                    color: AppTheme.textSecondary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _buildDocumentUploadStep() {
     return SingleChildScrollView(
@@ -474,10 +589,26 @@ if (_selectedBranch != null) ...[
             style: GoogleFonts.roboto(color: AppTheme.textMuted),
           ),
           const SizedBox(height: 24),
-          _buildUploadCard('Jamabandi', 'PDF, JPG, JPEG, PNG up to 10MB', Icons.upload_file),
-          _buildUploadCard('Sale Deed', 'PDF, JPG, JPEG, PNG up to 10MB', Icons.upload_file),
-          _buildUploadCard('Patta/Mother Title', 'PDF, JPG, JPEG, PNG up to 10MB', Icons.upload_file),
-          _buildUploadCard('Mutation Record', 'PDF, JPG, JPEG, PNG up to 10MB', Icons.upload_file),
+          _buildUploadCard(
+            'Jamabandi',
+            'PDF, JPG, JPEG, PNG up to 10MB',
+            Icons.upload_file,
+          ),
+          _buildUploadCard(
+            'Sale Deed',
+            'PDF, JPG, JPEG, PNG up to 10MB',
+            Icons.upload_file,
+          ),
+          _buildUploadCard(
+            'Patta/Mother Title',
+            'PDF, JPG, JPEG, PNG up to 10MB',
+            Icons.upload_file,
+          ),
+          _buildUploadCard(
+            'Mutation Record',
+            'PDF, JPG, JPEG, PNG up to 10MB',
+            Icons.upload_file,
+          ),
           const SizedBox(height: 16),
           _buildUploadSummary(),
         ],
@@ -488,7 +619,7 @@ if (_selectedBranch != null) ...[
   Widget _buildUploadCard(String title, String subtitle, IconData icon) {
     DocumentUpload upload = _uploadedDocuments[title]!;
     bool isUploaded = upload.isUploaded;
-    
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: isUploaded ? 2 : 1,
@@ -497,7 +628,7 @@ if (_selectedBranch != null) ...[
         leading: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isUploaded 
+            color: isUploaded
                 ? AppTheme.success.withOpacity(0.1)
                 : AppTheme.primaryPurple.withOpacity(0.1),
             borderRadius: BorderRadius.circular(12),
@@ -557,7 +688,9 @@ if (_selectedBranch != null) ...[
                 backgroundColor: isUploaded
                     ? AppTheme.accentBlue.withOpacity(0.1)
                     : AppTheme.primaryPurple.withOpacity(0.1),
-                foregroundColor: isUploaded ? AppTheme.accentBlue : AppTheme.primaryPurple,
+                foregroundColor: isUploaded
+                    ? AppTheme.accentBlue
+                    : AppTheme.primaryPurple,
                 elevation: 0,
               ),
               child: Text(isUploaded ? 'Replace' : 'Upload'),
@@ -569,18 +702,20 @@ if (_selectedBranch != null) ...[
   }
 
   Widget _buildUploadSummary() {
-    int uploadedCount = _uploadedDocuments.values.where((doc) => doc.isUploaded).length;
+    int uploadedCount = _uploadedDocuments.values
+        .where((doc) => doc.isUploaded)
+        .length;
     int totalCount = _uploadedDocuments.length;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: uploadedCount == totalCount 
+        color: uploadedCount == totalCount
             ? AppTheme.success.withOpacity(0.1)
             : AppTheme.warning.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: uploadedCount == totalCount 
+          color: uploadedCount == totalCount
               ? AppTheme.success.withOpacity(0.3)
               : AppTheme.warning.withOpacity(0.3),
         ),
@@ -588,8 +723,12 @@ if (_selectedBranch != null) ...[
       child: Row(
         children: [
           Icon(
-            uploadedCount == totalCount ? Icons.check_circle : Icons.info_outline,
-            color: uploadedCount == totalCount ? AppTheme.success : AppTheme.warning,
+            uploadedCount == totalCount
+                ? Icons.check_circle
+                : Icons.info_outline,
+            color: uploadedCount == totalCount
+                ? AppTheme.success
+                : AppTheme.warning,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -599,7 +738,9 @@ if (_selectedBranch != null) ...[
                   : 'Uploaded $uploadedCount of $totalCount documents',
               style: GoogleFonts.roboto(
                 fontWeight: FontWeight.w600,
-                color: uploadedCount == totalCount ? AppTheme.success : AppTheme.warning,
+                color: uploadedCount == totalCount
+                    ? AppTheme.success
+                    : AppTheme.warning,
               ),
             ),
           ),
@@ -622,11 +763,23 @@ if (_selectedBranch != null) ...[
             ),
           ),
           const SizedBox(height: 24),
-          _buildTextField('Applicant Name', 'Enter applicant name', _applicantNameController),
+          _buildTextField(
+            'Applicant Name',
+            'Enter applicant name',
+            _applicantNameController,
+          ),
           const SizedBox(height: 16),
-          _buildTextField('Co-Applicant Name', 'Enter co-applicant name (optional)', _coApplicantNameController),
+          _buildTextField(
+            'Co-Applicant Name',
+            'Enter co-applicant name (optional)',
+            _coApplicantNameController,
+          ),
           const SizedBox(height: 16),
-          _buildTextField('Present Owner', 'Enter present owner name', _presentOwnerController),
+          _buildTextField(
+            'Present Owner',
+            'Enter present owner name',
+            _presentOwnerController,
+          ),
           const SizedBox(height: 16),
           _buildTextField('Loan ID', 'Enter bank loan ID', _loanIdController),
           const SizedBox(height: 16),
@@ -644,33 +797,20 @@ if (_selectedBranch != null) ...[
   }
 
   Widget _buildAIProcessingStep() {
-    // Simulate AI processing and generate mock data
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted && _currentStep == 3) {
-        setState(() {
-          _aiGeneratedData = {
-            'propertyAddress': '123, Main Street, Andheri West, Mumbai - 400053',
-            'surveyNumber': 'SY-123/456',
-            'plotArea': '1200 sq.ft',
-            'ownershipChain': [
-              {'owner': 'Rajesh Kumar', 'year': '1995', 'document': 'Sale Deed SD/123'},
-              {'owner': 'Suresh Patel', 'year': '2005', 'document': 'Sale Deed SD/456'},
-              {'owner': _presentOwnerController.text, 'year': '2020', 'document': 'Sale Deed SD/789'},
-            ],
-            'encumbrances': 'No encumbrances found',
-            'legalStatus': 'Clear Title',
-            'marketValue': '₹85,00,000',
-            'observations': [
-              'All documents are in order',
-              'Chain of ownership is complete',
-              'No pending litigation',
-              'Property tax paid up to date'
-            ],
-            'recommendations': 'The property is legally sound and recommended for loan approval.',
-          };
-        });
-      }
-    });
+    // Trigger API call only once when this step is built
+    // Using a reliable check to prevent multiple calls would be better in a real state management solution
+    // For now, we rely on a flag or just checking if data is already populated?
+    // But _aiGeneratedData might be populated from previous steps? No, it's init as empty.
+
+    // We'll use a FutureBuilder or just call it here with a flag.
+    // But since this is a build method, calling API directly is bad practice.
+    // However, existing code was using Future.delayed inside build.
+    // I will introduce a `_isAnalyzing` flag and call a method `_startAnalysis` from `build` if not analyzing.
+    // BETTER: Use a FutureBuilder or verify `_isAnalyzing`.
+
+    if (!_isAnalyzing && _aiGeneratedData.isEmpty) {
+      _startAnalysis();
+    }
 
     return Center(
       child: Column(
@@ -681,7 +821,9 @@ if (_selectedBranch != null) ...[
             height: 120,
             child: CircularProgressIndicator(
               strokeWidth: 8,
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryPurple.withOpacity(0.8)),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                AppTheme.primaryPurple.withOpacity(0.8),
+              ),
             ),
           ),
           const SizedBox(height: 32),
@@ -694,14 +836,14 @@ if (_selectedBranch != null) ...[
           ),
           const SizedBox(height: 16),
           Text(
-            'Extracting data • Validating chain • Checking discrepancies',
+            _analysisStatus,
             style: GoogleFonts.roboto(color: AppTheme.textMuted),
           ),
           const SizedBox(height: 48),
-          _buildProgressItem('Document OCR', true),
-          _buildProgressItem('Chain Establishment', true),
-          _buildProgressItem('Cross-Validation', false),
-          _buildProgressItem('Report Generation', false),
+          _buildProgressItem('Document OCR', _progressStep >= 1),
+          _buildProgressItem('Chain Establishment', _progressStep >= 2),
+          _buildProgressItem('Cross-Validation', _progressStep >= 3),
+          _buildProgressItem('Report Generation', _progressStep >= 4),
         ],
       ),
     );
@@ -792,7 +934,9 @@ if (_selectedBranch != null) ...[
                       const SizedBox(height: 4),
                       Text(
                         'All validations passed. Chain is complete.',
-                        style: GoogleFonts.roboto(color: AppTheme.textSecondary),
+                        style: GoogleFonts.roboto(
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -801,8 +945,16 @@ if (_selectedBranch != null) ...[
             ),
           ),
           const SizedBox(height: 24),
-          _buildActionCard('Download Word', Icons.description, AppTheme.accentBlue),
-          _buildActionCard('Download PDF', Icons.picture_as_pdf, AppTheme.error),
+          _buildActionCard(
+            'Download Word',
+            Icons.description,
+            AppTheme.accentBlue,
+          ),
+          _buildActionCard(
+            'Download PDF',
+            Icons.picture_as_pdf,
+            AppTheme.error,
+          ),
           _buildActionCard('Share Report', Icons.share, AppTheme.primaryPurple),
         ],
       ),
@@ -821,7 +973,10 @@ if (_selectedBranch != null) ...[
           ),
           child: Icon(icon, color: color),
         ),
-        title: Text(title, style: GoogleFonts.roboto(fontWeight: FontWeight.w600)),
+        title: Text(
+          title,
+          style: GoogleFonts.roboto(fontWeight: FontWeight.w600),
+        ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
           // Handle download/share actions
@@ -838,7 +993,7 @@ if (_selectedBranch != null) ...[
             'uploadedDocuments': _uploadedDocuments,
             ..._aiGeneratedData,
           };
-          
+
           // TODO: Implement PDF/Word generation and sharing
           print('Final data for report: $finalData');
         },
@@ -880,17 +1035,21 @@ if (_selectedBranch != null) ...[
             Expanded(
               flex: 2,
               child: ElevatedButton(
-                onPressed: _canProceed() ? () {
-                  if (_currentStep < _steps.length - 1) {
-                    setState(() => _currentStep++);
-                  } else {
-                    Navigator.pop(context);
-                  }
-                } : null,
+                onPressed: _canProceed()
+                    ? () {
+                        if (_currentStep < _steps.length - 1) {
+                          setState(() => _currentStep++);
+                        } else {
+                          Navigator.pop(context);
+                        }
+                      }
+                    : null,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
-                child: Text(_currentStep == _steps.length - 1 ? 'Finish' : 'Continue'),
+                child: Text(
+                  _currentStep == _steps.length - 1 ? 'Finish' : 'Continue',
+                ),
               ),
             ),
           ],
@@ -902,58 +1061,68 @@ if (_selectedBranch != null) ...[
   bool _canProceed() {
     switch (_currentStep) {
       case 0:
-        return _selectedBank != null && _selectedBranch != null && _selectedReportFormat != null;
+        return _selectedBank != null &&
+            _selectedBranch != null &&
+            _selectedReportFormat != null;
       case 1:
         // Require at least 2 documents to be uploaded
-        return _uploadedDocuments.values.where((doc) => doc.isUploaded).length >= 2;
+        return _uploadedDocuments.values
+                .where((doc) => doc.isUploaded)
+                .length >=
+            2;
       case 2:
         return _applicantNameController.text.isNotEmpty &&
-               _presentOwnerController.text.isNotEmpty &&
-               _loanIdController.text.isNotEmpty &&
-               _selectedPropertyType != null;
+            _presentOwnerController.text.isNotEmpty &&
+            _loanIdController.text.isNotEmpty &&
+            _selectedPropertyType != null;
       default:
         return true;
     }
   }
 
-  Widget _buildTextField(String label, String hint, TextEditingController controller) {
+  Widget _buildTextField(
+    String label,
+    String hint,
+    TextEditingController controller,
+  ) {
     return TextField(
       controller: controller,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
-Widget _buildDropdownField(
-  String label,
-  String hint,
-  IconData icon,
-  List<String> items,
-  String? value,
-  Function(String?) onChanged, {
-  bool enabled = true,  
-}) {
-  return DropdownButtonFormField<String>(
-    value: value,
-    decoration: InputDecoration(
-      labelText: label,
-      prefixIcon: Icon(icon, color: enabled ? AppTheme.textMuted : Colors.grey.shade400),  // 👈 CHANGED
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+  Widget _buildDropdownField(
+    String label,
+    String hint,
+    IconData icon,
+    List<String> items,
+    String? value,
+    Function(String?) onChanged, {
+    bool enabled = true,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(
+          icon,
+          color: enabled ? AppTheme.textMuted : Colors.grey.shade400,
+        ), // 👈 CHANGED
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: !enabled,
+        fillColor: !enabled ? Colors.grey.shade100 : null,
       ),
-      filled: !enabled,  
-      fillColor: !enabled ? Colors.grey.shade100 : null,  
-    ),
-    hint: Text(hint),
-    items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
-    onChanged: enabled ? onChanged : null,  
-  );
-}
+      hint: Text(hint),
+      items: items
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
+      onChanged: enabled ? onChanged : null,
+    );
+  }
 }
 
 // Document Upload Model
@@ -962,16 +1131,22 @@ class DocumentUpload {
   final String fileName;
   final String filePath;
   final int fileSize;
-  final dynamic fileBytes;  
+  final dynamic fileBytes;
 
   DocumentUpload({
     this.isUploaded = false,
     this.fileName = '',
     this.filePath = '',
     this.fileSize = 0,
-    this.fileBytes,  
+    this.fileBytes,
   });
 
+<<<<<<< Updated upstream
   bool get isWebUpload => fileBytes != null;  
   bool get isMobileUpload => filePath.isNotEmpty;  
 } 
+=======
+  bool get isWebUpload => fileBytes != null;
+  bool get isMobileUpload => filePath.isNotEmpty;
+}
+>>>>>>> Stashed changes
