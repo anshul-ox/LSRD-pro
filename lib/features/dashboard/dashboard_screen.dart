@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lsrd_pro/core/theme/app_theme.dart';
-
 import 'package:lsrd_pro/screens/vetting/vetting_screen.dart';
 import '../../screens/deeds/deeds_screen.dart';
 import 'package:lsrd_pro/screens/billing/billing_screen.dart';
-
 import 'package:lsrd_pro/core/widgets/stat_card.dart';
 import 'package:lsrd_pro/core/widgets/activity_item.dart';
 import 'package:lsrd_pro/screens/lsr/lsr_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -19,7 +18,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  
+
   final List<Widget> _screens = [
     const DashboardHome(),
     const LSRScreen(),
@@ -71,7 +70,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryPurple.withOpacity(0.1) : Colors.transparent,
+          color: isSelected
+              ? AppTheme.primaryPurple.withOpacity(0.1)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -206,8 +207,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 class DashboardHome extends StatelessWidget {
   const DashboardHome({super.key});
 
+  String get _greeting {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good Morning';
+    if (hour < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  String get _initials {
+    final name = FirebaseAuth.instance.currentUser?.displayName ?? 'Advocate';
+    if (name.isEmpty) return 'A';
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name[0].toUpperCase();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final displayName = user?.displayName ?? 'Advocate';
+
     return CustomScrollView(
       slivers: [
         SliverAppBar(
@@ -236,7 +257,7 @@ class DashboardHome extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Good Morning',
+                                _greeting,
                                 style: GoogleFonts.roboto(
                                   color: Colors.white.withOpacity(0.8),
                                   fontSize: 14,
@@ -244,7 +265,7 @@ class DashboardHome extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Adv. Rajesh Mehta',
+                                displayName,
                                 style: GoogleFonts.roboto(
                                   color: Colors.white,
                                   fontSize: 20,
@@ -264,10 +285,10 @@ class DashboardHome extends StatelessWidget {
                                 width: 2,
                               ),
                             ),
-                            child: const Center(
+                            child: Center(
                               child: Text(
-                                'RM',
-                                style: TextStyle(
+                                _initials,
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -310,7 +331,7 @@ class DashboardHome extends StatelessWidget {
       crossAxisCount: 2,
       mainAxisSpacing: 16,
       crossAxisSpacing: 16,
-      childAspectRatio: 1.1,
+      childAspectRatio: 0.85,
       children: [
         StatCard(
           title: 'Total LSR',
@@ -414,7 +435,8 @@ class DashboardHome extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: activities.length,
           separatorBuilder: (_, __) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => ActivityItem(data: activities[index]),
+          itemBuilder: (context, index) =>
+              ActivityItem(data: activities[index]),
         ),
       ],
     );

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "547891733975",
-    "project_id": "auth-7fa36",
-    "storage_bucket": "auth-7fa36.firebasestorage.app"
+    "project_number": "651992733520",
+    "project_id": "lsrd-pro",
+    "storage_bucket": "lsrd-pro.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:547891733975:android:e7a7b4097a1149cded5792",
+        "mobilesdk_app_id": "1:651992733520:android:a485ace9c4458f7a117e55",
         "android_client_info": {
           "package_name": "com.example.lsrd_pro"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCIRsuHkoG1g8YVYLSsR4vggxQ6H1nFqyc"
+          "current_key": "AIzaSyAx4DC9qiR1bFkFjVj7m5weHq7UBrOfrOQ"
         }
       ],
       "services": {
