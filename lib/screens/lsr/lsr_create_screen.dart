@@ -1,4 +1,3 @@
-// screens/lsr/lsr_create_screen.dart
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lsrd_pro/core/theme/app_theme.dart';
@@ -975,4 +974,4 @@ class DocumentUpload {
 
   bool get isWebUpload => fileBytes != null;  
   bool get isMobileUpload => filePath.isNotEmpty;  
-}
+} 
