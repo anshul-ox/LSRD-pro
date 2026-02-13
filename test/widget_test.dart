@@ -7,7 +7,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:lsrd_pro/app.dart';
+import 'package:lsrd_pro/main.dart';
 // import 'package:lsrd_pro/main.dart';
 
 void main() {

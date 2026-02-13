@@ -17,14 +17,8 @@ class LSRScreen extends StatelessWidget {
               style: GoogleFonts.roboto(fontWeight: FontWeight.bold),
             ),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {},
-              ),
-              IconButton(
-                icon: const Icon(Icons.filter_list),
-                onPressed: () {},
-              ),
+              IconButton(icon: const Icon(Icons.search), onPressed: () {}),
+              IconButton(icon: const Icon(Icons.filter_list), onPressed: () {}),
             ],
           ),
           SliverPadding(
@@ -85,7 +79,12 @@ class LSRScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusCard(String title, String count, Color color, IconData icon) {
+  Widget _buildStatusCard(
+    String title,
+    String count,
+    Color color,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -123,10 +122,7 @@ class LSRScreen extends StatelessWidget {
       children: [
         Text(
           'Recent Reports',
-          style: GoogleFonts.roboto(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: GoogleFonts.roboto(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 16),
         _buildLSRItem(
@@ -154,7 +150,13 @@ class LSRScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildLSRItem(String name, String loanId, String bank, String status, Color statusColor) {
+  Widget _buildLSRItem(
+    String name,
+    String loanId,
+    String bank,
+    String status,
+    Color statusColor,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
@@ -177,7 +179,13 @@ class LSRScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 4),
             Text(loanId, style: GoogleFonts.roboto(color: AppTheme.textMuted)),
-            Text(bank, style: GoogleFonts.roboto(color: AppTheme.textMuted, fontSize: 12)),
+            Text(
+              bank,
+              style: GoogleFonts.roboto(
+                color: AppTheme.textMuted,
+                fontSize: 12,
+              ),
+            ),
           ],
         ),
         trailing: Container(

@@ -3,9 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lsrd_pro/core/theme/app_theme.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lsrd_pro/core/services/api_service.dart';
-// import 'dart:io';
+import 'dart:io';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'lsr_review_screen.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 
 class LSRCreateScreen extends StatefulWidget {
   const LSRCreateScreen({super.key});
@@ -197,6 +202,7 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
   bool _isAnalyzing = false;
   String _analysisStatus = 'Starting analysis...';
   int _progressStep = 0;
+  bool _hasError = false;
 
   @override
   void dispose() {
@@ -210,27 +216,42 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
   Future<void> _startAnalysis() async {
     if (_isAnalyzing) return;
 
+    print("DEBUG: _startAnalysis called. Starting...");
+
     setState(() {
       _isAnalyzing = true;
+      _hasError = false;
       _progressStep = 1;
       _analysisStatus = 'Uploading and extracting data...';
     });
 
     try {
       // 1. Collect files
-      List<String> filePaths = [];
-      _uploadedDocuments.forEach((key, doc) {
-        if (doc.isUploaded) {
-          filePaths.add(doc.filePath);
-        }
-      });
+      Map<String, String> startFiles = {};
 
-      if (filePaths.isEmpty) {
-        throw Exception('No documents uploaded');
+      print("DEBUG: Collecting files...");
+
+      if (_uploadedDocuments['Jamabandi']?.isUploaded ?? false) {
+        startFiles['jamabandi'] = _uploadedDocuments['Jamabandi']!.filePath;
+      }
+      if (_uploadedDocuments['Sale Deed']?.isUploaded ?? false) {
+        startFiles['deed'] = _uploadedDocuments['Sale Deed']!.filePath;
+      }
+
+      if (startFiles.length < 2) {
+        throw Exception('Please upload both Jamabandi and Sale Deed');
       }
 
       // 2. Call API
-      final result = await ApiService.analyzeDocuments(filePaths, 'demo_user');
+      print(
+        "DEBUG: Calling ApiService.analyzeDocuments with files: ${startFiles.keys}",
+      );
+      final result = await ApiService.analyzeDocuments(startFiles, 'demo_user');
+      print("DEBUG: API Response received: $result");
+
+      if (result['success'] == false) {
+        throw Exception(result['error'] ?? 'API responded with failure');
+      }
 
       setState(() {
         _progressStep = 2;
@@ -253,51 +274,152 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
       await Future.delayed(const Duration(milliseconds: 800));
 
       // 3. Map result to UI
-      // Note: The backend returns VerificationReport.
-      // We need to map it to the structure _aiGeneratedData expects.
+      // Expected structure from new prompt:
+      // {
+      //   "extraction": { "jamabandi": {...}, "deed": {...} },
+      //   "validation": { "owner_match": true, ... },
+      //   "decision": { "recommendation": "approved", "reason": "...", "issues": [] }
+      // }
 
-      var doc1 = result['document_1_analysis'] ?? {};
-      var entities = doc1['extracted_entities'] ?? {};
+      print("DEBUG: Processing API result...");
+      var data = result['data'] ?? result; // fallback for both structures
+      var extraction = data['extraction'] ?? {};
+      var jamabandi = extraction['jamabandi'] ?? {};
+      var deed = extraction['deed'] ?? {};
+      var validation = data['validation'] ?? {};
+      var decision = data['decision'] ?? {};
 
+      print("DEBUG: Jamabandi Extraction: $jamabandi");
+      print("DEBUG: Deed Extraction: $deed");
+      print("DEBUG: Decision: $decision");
+
+      // Prepare Ownership Chain
+      List<Map<String, dynamic>> chain = [];
+      // Entry 1: Jamabandi Owner
+      if (jamabandi['owner_name'] != null) {
+        chain.add({
+          'owner': jamabandi['owner_name'],
+          'year': 'Jamabandi Record',
+          'document': 'Jamabandi (${jamabandi['dates']?.isNotEmpty == true ? jamabandi['dates'][0] : 'Date N/A'})',
+        });
+      }
+      // Entry 2: Sale Deed Transaction
+      if (deed['buyer_name'] != null) {
+        chain.add({
+          'owner': deed['buyer_name'],
+          'year': 'Buyer (Deed: ${deed['registration_date'] ?? 'Date N/A'})',
+          'document': 'Sale Deed ${deed['registration_number'] ?? ''}',
+        });
+      }
+      if (chain.isEmpty) {
+        chain.add({
+          'owner': 'Review Required',
+          'year': 'Data Missing',
+          'document': 'N/A',
+        });
+      }
+
+      // Prepare Observations/Recommendations
+      String primaryReason = decision['reason'] ?? 'Analysis Completed';
+      List<dynamic> issues = decision['issues'] ?? [];
+      String detailedRec = primaryReason;
+      if (issues.isNotEmpty) {
+        detailedRec += '\n\nIssues:\n${issues.join('\n')}';
+      }
+
+      print("DEBUG: Updating UI state with mapped data...");
       setState(() {
         _aiGeneratedData = {
-          'propertyAddress': entities['Address'] ?? 'Extracted from documents',
-          'surveyNumber':
-              entities['Document/Registration numbers'] ?? 'Extracted',
-          'plotArea':
-              'As per deed', // Backend entity extraction might need update to include this
-          'ownershipChain': [
-            // Creating a mock chain from results or just showing the verified data
-            {
-              'owner': entities['Person names'] ?? 'Unknown',
-              'year': '2024',
-              'document': 'Computed',
-            },
-          ],
-          'encumbrances': result['risk_level'] == 'LOW'
-              ? 'No major encumbrances detected'
-              : 'Potential issues found',
-          'legalStatus': result['verification_status'] ?? 'Unknown',
-          'marketValue': 'Pending Valuation',
-          'observations': result['red_flags'] != null
-              ? List<String>.from(result['red_flags'])
-              : [],
-          'recommendations': result['recommendations'] ?? 'Review required',
+          'propertyAddress': jamabandi['village'] ?? 'Extracted from documents',
+          'surveyNumber': jamabandi['plot_number'] ?? 'Extracted',
+          'plotArea': jamabandi['area'] ?? 'As per deed',
+          'legalStatus':
+              decision['recommendation']?.toString().toUpperCase() ?? 'PENDING',
+          'recommendations': detailedRec,
+          'ownershipChain': chain,
+          // Additional fields that might be used by Review Screen
+          'encumbrances': validation['owner_match'] == true
+              ? 'Ownership Verified'
+              : 'Ownership Issue: ${validation['owner_explanation'] ?? 'Unknown'}',
+          'observations': issues.cast<String>(),
+          'marketValue': deed['sale_amount'] ?? 'Pending Valuation',
         };
         _isAnalyzing = false;
+        _hasError = false;
+        _currentStep++;
       });
-    } catch (e) {
+      print("DEBUG: Analysis complete. UI updated.");
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        print("DEBUG: Analysis failed with error: $e");
+        print("DEBUG: Stack trace: $stackTrace");
+      }
+
       if (mounted) {
+        // Extract meaningful error message
+        String errorMessage = e.toString();
+        String displayMessage = 'Analysis failed';
+
+        if (errorMessage.contains('Cannot connect to backend')) {
+          displayMessage = 'Cannot connect to backend server';
+        } else if (errorMessage.contains('timeout')) {
+          displayMessage = 'Request timed out - files may be too large';
+        } else if (errorMessage.contains('Backend error')) {
+          displayMessage = 'Backend processing error';
+        } else if (errorMessage.contains('No valid files')) {
+          displayMessage = 'Please upload both required documents';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Analysis failed: $e'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayMessage,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  errorMessage.length > 200
+                    ? '${errorMessage.substring(0, 200)}...'
+                    : errorMessage,
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
             backgroundColor: AppTheme.error,
+            duration: const Duration(seconds: 8),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'DETAILS',
+              textColor: Colors.white,
+              onPressed: () {
+                // Show detailed error dialog
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Error Details'),
+                    content: SingleChildScrollView(
+                      child: Text(errorMessage),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('CLOSE'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         );
         setState(() {
           _isAnalyzing = false;
-          // Go back to previous step on error?
-          // _currentStep--;
+          _hasError = true;
+          _analysisStatus = displayMessage;
         });
       }
     }
@@ -808,8 +930,46 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
     // I will introduce a `_isAnalyzing` flag and call a method `_startAnalysis` from `build` if not analyzing.
     // BETTER: Use a FutureBuilder or verify `_isAnalyzing`.
 
-    if (!_isAnalyzing && _aiGeneratedData.isEmpty) {
+    if (!_isAnalyzing && _aiGeneratedData.isEmpty && !_hasError) {
       _startAnalysis();
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.error_outline, size: 64, color: AppTheme.error),
+            const SizedBox(height: 16),
+            Text(
+              'Analysis Failed',
+              style: GoogleFonts.roboto(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _analysisStatus,
+              style: GoogleFonts.roboto(color: AppTheme.textMuted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _startAnalysis,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry Analysis'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryPurple,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     return Center(
@@ -979,23 +1139,27 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
         ),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
-          // Handle download/share actions
-          // You can access all the data here for PDF generation
-          final finalData = {
-            'bank': _selectedBank,
-            'branch': _selectedBranch,
-            'reportFormat': _selectedReportFormat,
-            'applicantName': _applicantNameController.text,
-            'coApplicantName': _coApplicantNameController.text,
-            'presentOwner': _presentOwnerController.text,
-            'loanId': _loanIdController.text,
-            'propertyType': _selectedPropertyType,
-            'uploadedDocuments': _uploadedDocuments,
-            ..._aiGeneratedData,
-          };
+          if (title == 'Download PDF') {
+            _generateAndDownloadPdf();
+          } else {
+            // Handle download/share actions
+            // You can access all the data here for PDF generation
+            final finalData = {
+              'bank': _selectedBank,
+              'branch': _selectedBranch,
+              'reportFormat': _selectedReportFormat,
+              'applicantName': _applicantNameController.text,
+              'coApplicantName': _coApplicantNameController.text,
+              'presentOwner': _presentOwnerController.text,
+              'loanId': _loanIdController.text,
+              'propertyType': _selectedPropertyType,
+              'uploadedDocuments': _uploadedDocuments,
+              ..._aiGeneratedData,
+            };
 
-          // TODO: Implement PDF/Word generation and sharing
-          print('Final data for report: $finalData');
+            // TODO: Implement other actions
+            print('Final data for report: $finalData');
+          }
         },
       ),
     );
@@ -1123,6 +1287,169 @@ class _LSRCreateScreenState extends State<LSRCreateScreen> {
       onChanged: enabled ? onChanged : null,
     );
   }
+
+  Future<void> _generateAndDownloadPdf() async {
+    final pdf = pw.Document();
+
+    final font = await PdfGoogleFonts.robotoRegular();
+    final fontBold = await PdfGoogleFonts.robotoBold();
+
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: font, bold: fontBold),
+        build: (pw.Context context) {
+          return [
+            pw.Header(
+              level: 0,
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Legal Scrutiny Report',
+                    style: pw.TextStyle(
+                      fontSize: 24,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Text(DateTime.now().toString().split(' ')[0]),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // Bank Details
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Bank Details',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Divider(),
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Text('Bank Name: ${_selectedBank ?? "N/A"}'),
+                      ),
+                      pw.Expanded(
+                        child: pw.Text('Branch: ${_selectedBranch ?? "N/A"}'),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 5),
+                  pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Text('Loan ID: ${_loanIdController.text}'),
+                      ),
+                      pw.Expanded(
+                        child: pw.Text(
+                          'Format: ${_selectedReportFormat ?? "N/A"}',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // Applicant Details
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Applicant Details',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Divider(),
+                  pw.Text('Applicant Name: ${_applicantNameController.text}'),
+                  pw.SizedBox(height: 5),
+                  pw.Text(
+                    'Co-Applicant Name: ${_coApplicantNameController.text}',
+                  ),
+                  pw.SizedBox(height: 5),
+                  pw.Text('Present Owner: ${_presentOwnerController.text}'),
+                  pw.SizedBox(height: 5),
+                  pw.Text('Property Type: ${_selectedPropertyType ?? "N/A"}'),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // AI Analysis
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Property Analysis',
+                    style: pw.TextStyle(
+                      fontSize: 16,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.Divider(),
+                  pw.Text(
+                    'Address: ${_aiGeneratedData["propertyAddress"] ?? "N/A"}',
+                  ),
+                  pw.SizedBox(height: 5),
+                  pw.Text(
+                    'Survey No: ${_aiGeneratedData["surveyNumber"] ?? "N/A"}',
+                  ),
+                  pw.SizedBox(height: 5),
+                  pw.Text(
+                    'Legal Status: ${_aiGeneratedData["legalStatus"] ?? "N/A"}',
+                  ),
+                  pw.SizedBox(height: 5),
+                  pw.Text(
+                    'Plot Area: ${_aiGeneratedData["plotArea"] ?? "N/A"}',
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // Recommendations
+            pw.Text(
+              'Recommendations:',
+              style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+            ),
+            pw.Paragraph(text: _aiGeneratedData["recommendations"] ?? "None"),
+          ];
+        },
+      ),
+    );
+
+    // Save or Share
+    final output = await getTemporaryDirectory();
+    final file = File(
+      "${output.path}/LSR_Report_${DateTime.now().millisecondsSinceEpoch}.pdf",
+    );
+    await file.writeAsBytes(await pdf.save());
+    await Share.shareXFiles([XFile(file.path)], text: 'Legal Scrutiny Report');
+  }
 }
 
 // Document Upload Model
@@ -1141,12 +1468,6 @@ class DocumentUpload {
     this.fileBytes,
   });
 
-<<<<<<< Updated upstream
-  bool get isWebUpload => fileBytes != null;  
-  bool get isMobileUpload => filePath.isNotEmpty;  
-} 
-=======
   bool get isWebUpload => fileBytes != null;
   bool get isMobileUpload => filePath.isNotEmpty;
 }
->>>>>>> Stashed changes

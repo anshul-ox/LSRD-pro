@@ -9,7 +9,10 @@ import 'package:flutter/foundation.dart';
 /// LSR Format Types
 enum LSRFormat {
   standard('Standard LSR', 'Comprehensive standard format'),
-  bankDetailed('Detailed Bank-Specific', 'Extended checklist with bank requirements'),
+  bankDetailed(
+    'Detailed Bank-Specific',
+    'Extended checklist with bank requirements',
+  ),
   minimal('Minimal Scrutiny', 'Quick verification format');
 
   final String displayName;
@@ -82,7 +85,8 @@ class Bank {
     this.logoUrl,
     List<String>? supportedFormats,
     this.isActive = true,
-  }) : supportedFormats = supportedFormats ?? ['standard', 'bankDetailed', 'minimal'];
+  }) : supportedFormats =
+           supportedFormats ?? ['standard', 'bankDetailed', 'minimal'];
 
   factory Bank.fromJson(Map<String, dynamic> json) {
     return Bank(
@@ -247,39 +251,39 @@ class LSRReport {
   final String id;
   final DateTime createdAt;
   final DateTime updatedAt;
-  
+
   // Bank & Branch
   final String bankId;
   final String branchId;
-  
+
   // Format & Case Type
   final LSRFormat format;
   final CaseType caseType;
   final PropertyType propertyType;
-  
+
   // Applicant Details
   final String applicantName;
   final String? coApplicantName;
   final String presentOwner;
   final String loanId;
-  
+
   // Property Details
   final String? propertyAddress;
   final String? surveyNumber;
   final String? plotArea;
   final String? marketValue;
-  
+
   // Documents & Checklist
   final List<ChecklistItem> checklist;
   final Map<String, dynamic>? uploadedDocuments;
-  
+
   // AI Generated Data
   final List<OwnershipChainItem>? ownershipChain;
   final String? encumbrances;
   final String? legalStatus;
   final List<String>? observations;
   final String? recommendations;
-  
+
   // Status
   final LSRStatus status;
 
@@ -373,7 +377,9 @@ class LSRReport {
       branchId: json['branchId'] as String,
       format: LSRFormat.values.firstWhere((e) => e.name == json['format']),
       caseType: CaseType.values.firstWhere((e) => e.name == json['caseType']),
-      propertyType: PropertyType.values.firstWhere((e) => e.name == json['propertyType']),
+      propertyType: PropertyType.values.firstWhere(
+        (e) => e.name == json['propertyType'],
+      ),
       applicantName: json['applicantName'] as String,
       coApplicantName: json['coApplicantName'] as String?,
       presentOwner: json['presentOwner'] as String,
@@ -382,16 +388,20 @@ class LSRReport {
       surveyNumber: json['surveyNumber'] as String?,
       plotArea: json['plotArea'] as String?,
       marketValue: json['marketValue'] as String?,
-      checklist: (json['checklist'] as List<dynamic>?)
-          ?.map((e) => ChecklistItem.fromJson(e as Map<String, dynamic>))
-          .toList() ?? [],
+      checklist:
+          (json['checklist'] as List<dynamic>?)
+              ?.map((e) => ChecklistItem.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
       uploadedDocuments: json['uploadedDocuments'] as Map<String, dynamic>?,
       ownershipChain: (json['ownershipChain'] as List<dynamic>?)
           ?.map((e) => OwnershipChainItem.fromJson(e as Map<String, dynamic>))
           .toList(),
       encumbrances: json['encumbrances'] as String?,
       legalStatus: json['legalStatus'] as String?,
-      observations: (json['observations'] as List<dynamic>?)?.map((e) => e.toString()).toList(),
+      observations: (json['observations'] as List<dynamic>?)
+          ?.map((e) => e.toString())
+          .toList(),
       recommendations: json['recommendations'] as String?,
       status: LSRStatus.values.firstWhere(
         (e) => e.name == json['status'],
@@ -451,11 +461,7 @@ class OwnershipChainItem {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'owner': owner,
-      'year': year,
-      'document': document,
-    };
+    return {'owner': owner, 'year': year, 'document': document};
   }
 }
 
