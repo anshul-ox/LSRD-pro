@@ -195,8 +195,8 @@ def analyze_with_gemini(jamabandi_path: str, deed_path: str) -> dict:
     """Send PDFs to Gemini and get analysis"""
     try:
         # Initialize Gemini model
-        # Using gemini-2.0-flash-001 (stable 2.0 model with PDF support)
-        model = genai.GenerativeModel("models/gemini-2.0-flash-001")
+        # Using gemini-1.5-flash (stable model with PDF support and better free tier)
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
         # Convert PDFs to base64
         jamabandi_data = pdf_to_base64(jamabandi_path)
