@@ -1,47 +1,28 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Depends, Header
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
 import google.generativeai as genai
-import json
+import base64
 import os
-import tempfile
-import logging
-from datetime import datetime
-import magic
-import hashlib
-import time
-import uuid
+from dotenv import load_dotenv
+import json
+import shutil
+from pathlib import Path
 
-# Database Imports
-from database.database import engine, Base, get_db
-from database import crud, models
+# Load environment variables
+load_dotenv()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Setup logging
-logging.basicConfig(level=logging.INFO, filename='server.log', filemode='a', format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Configure Gemini
+genai.configure(api_key=GEMINI_API_KEY)
 
-# Ensure data directory exists
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
-
-# Create tables on startup
-try:
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created successfully.")
-except Exception as e:
-    logger.error(f"Error creating database tables: {e}")
-
+# Create FastAPI app
 app = FastAPI(
-    title="LSR Document Intelligence API",
-    description="AI-Powered Document Cross-Validation & Verification System",
-    version="2.0.0"
+    title="PDF Gemini Analyzer",
+    description="Upload 2 PDFs, get Gemini analysis",
+    version="1.0.0"
 )
 
-# CORS
+# CORS (allow Flutter to call)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -50,344 +31,305 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Gemini Configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyAFAFdGR842HI_p0O4NjoKTEr_BE1btwcI")
-if not GEMINI_API_KEY:
-    logger.warning("GEMINI_API_KEY environment variable not set. Please set it to use Gemini features.")
+# Create temp directory
+TEMP_DIR = Path("temp")
+TEMP_DIR.mkdir(exist_ok=True)
 
-# Configure Gemini
-genai.configure(api_key=GEMINI_API_KEY)
+# Gemini Analysis Prompt
+ANALYSIS_PROMPT = """
+You are an expert document analyst specializing in Indian land records and property documents.
 
-# Use Gemini Flash Latest for better availability/quota
-model = genai.GenerativeModel(
-    model_name='gemini-flash-latest',
-    generation_config={
-        "temperature": 0.1,  # Low for consistent results
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 8192,
-        "response_mime_type": "application/json",
+I am providing TWO PDF documents:
+1. JAMABANDI (Land Record)
+2. SALE DEED (Property Sale Agreement)
+
+Your task: Extract data from both documents and validate if they match.
+
+---
+
+STEP 1: EXTRACT DATA
+
+From JAMABANDI extract:
+- Owner name (exact text)
+- Father's name
+- Plot number / Khasra number
+- Khata number
+- Area with unit (bigha/acre/sq ft/sq m)
+- Village name
+- Tehsil (if present)
+- District (if present)
+- All dates found
+
+From SALE DEED extract:
+- Buyer name
+- Seller name
+- Father's names
+- Plot number / Khasra number
+- Area with unit
+- Sale amount
+- Registration date
+- Registration number
+- Witness names
+
+---
+
+STEP 2: VALIDATE
+
+1. OWNER MATCH:
+Does Jamabandi owner = Deed seller?
+Consider these as SAME:
+- "Ram Kumar" = "राम कुमार" = "R. Kumar" = "Shri Ram Kumar"
+Handle Hindi/English variations smartly.
+
+2. PLOT NUMBER MATCH:
+Do plot numbers match?
+Consider these as SAME:
+- "123/456" = "123-456" = "khata 123/456"
+
+3. AREA MATCH:
+Convert both to square feet, then calculate difference.
+If difference ≤ 2% → MATCH (acceptable tolerance)
+If difference > 2% → FLAG IT
+
+Unit conversions:
+- 1 Bigha = 27,225 sq ft
+- 1 Acre = 43,560 sq ft
+- 1 Hectare = 107,639 sq ft
+- 1 sq meter = 10.764 sq ft
+
+4. DATE CHECK:
+Is deed date AFTER jamabandi date?
+
+5. AUTHENTICITY:
+Are stamps/signatures visible?
+
+---
+
+STEP 3: MAKE DECISION
+
+"approved" if:
+- Owner matches (confidence > 85%)
+- Plot number matches
+- Area difference ≤ 2%
+- Dates valid
+- Stamps present
+
+"needs_review" if:
+- Minor mismatches
+- Area difference 2-5%
+- Low confidence (65-85%)
+
+"rejected" if:
+- Owner completely different
+- Plot mismatch
+- Area difference > 5%
+- Missing signatures
+
+---
+
+OUTPUT FORMAT:
+
+Return ONLY valid JSON (no markdown, no code blocks, no extra text):
+
+{
+  "extraction": {
+    "jamabandi": {
+      "owner_name": "string or null",
+      "father_name": "string or null",
+      "plot_number": "string or null",
+      "area": "string or null",
+      "area_sqft": number or null,
+      "village": "string or null",
+      "dates": ["array or empty"]
+    },
+    "deed": {
+      "buyer_name": "string or null",
+      "seller_name": "string or null",
+      "seller_father_name": "string or null",
+      "plot_number": "string or null",
+      "area": "string or null",
+      "area_sqft": number or null,
+      "sale_amount": "string or null",
+      "registration_date": "string or null"
     }
-)
+  },
+  "validation": {
+    "owner_match": boolean,
+    "owner_confidence": float (0-1),
+    "owner_explanation": "why they match or don't match",
+    "plot_match": boolean,
+    "plot_explanation": "string",
+    "area_match": boolean,
+    "area_difference_sqft": number,
+    "area_difference_percent": float,
+    "area_explanation": "string",
+    "dates_valid": boolean,
+    "stamps_present": boolean,
+    "signatures_present": boolean
+  },
+  "decision": {
+    "recommendation": "approved" | "needs_review" | "rejected",
+    "confidence": float (0-1),
+    "reason": "brief explanation",
+    "issues": ["list of problems or empty array"]
+  }
+}
 
-# ============== DATA MODELS ==============
+IMPORTANT RULES:
+1. Extract REAL data - don't make up information
+2. If you can't read something, use null
+3. Be smart about name matching (Hindi/English are same person)
+4. Return ONLY JSON, no markdown
+5. Be honest about confidence scores
+6. Explain your decisions clearly
 
-class DocumentAnalysis(BaseModel):
-    document_type: str = "Unknown"
-    extracted_entities: Dict[str, Any] = {}
-    confidence: float = 0.0
-    tampering_indicators: List[str] = []
-    authenticity_score: float = 0.0
-
-class CrossValidationResult(BaseModel):
-    field_name: str
-    document_1_value: str
-    document_2_value: str
-    document_3_value: Optional[str] = None
-    match_status: str  # EXACT_MATCH, PARTIAL_MATCH, MISMATCH, MISSING
-    confidence: float
-    notes: str
-
-class VerificationReport(BaseModel):
-    validation_id: Optional[str] = None # Added field
-    is_completely_verified: bool = Field(..., description="All checks passed")
-    overall_confidence: float = Field(..., ge=0, le=100)
-    verification_status: str  # VERIFIED, SUSPECTED, REJECTED
-    risk_level: str  # LOW, MEDIUM, HIGH, CRITICAL
-    
-    # Individual document analysis
-    document_1_analysis: DocumentAnalysis
-    document_2_analysis: Optional[DocumentAnalysis] = None
-    document_3_analysis: Optional[DocumentAnalysis] = None
-    
-    # Cross-validation results
-    cross_validations: List[CrossValidationResult]
-    
-    # Summary
-    total_checks: int
-    passed_checks: int
-    failed_checks: int
-    warning_checks: int
-    
-    # Detailed findings
-    exact_matches: List[str]
-    partial_matches: List[str]
-    discrepancies: List[str]
-    missing_information: List[str]
-    red_flags: List[str]
-    
-    # Recommendations
-    verification_summary: str
-    recommendations: str
-    next_steps: List[str]
-    
-    # Metadata
-    processing_timestamp: str
-    gemini_model_used: str
-
-# ============== PROMPT ENGINE ==============
-
-def build_master_prompt(file_names: List[str]) -> str:
-    """
-    MASTER PROMPT - Complete instruction set for Gemini
-    """
-    
-    prompt = f"""You are an expert **Forensic Document Examiner** and **Legal Compliance Officer** with 20+ years of experience. Your task is to perform **DEEP MULTI-LAYER VALIDATION** on {len(file_names)} uploaded documents.
-
-## 🎯 PRIMARY OBJECTIVE
-Perform cross-document verification to detect:
-- Identity fraud
-- Document forgery
-- Data inconsistencies
-- Missing critical information
-- Logical impossibilities
-
-## 📋 DOCUMENTS RECEIVED
-{chr(10).join([f"{i+1}. {name}" for i, name in enumerate(file_names)])}
-
----
-
-## 🔍 LAYER 1: INDIVIDUAL DOCUMENT ANALYSIS (Each Document)
-
-For EACH document, extract and analyze:
-
-### 1. Document Classification
-- Exact document type (Invoice, Contract, ID Proof, Bank Statement, etc.)
-- Issuing authority
-- Document date & validity period
-- Document number/ID
-
-### 2. Entity Extraction (Structured Data)
-Extract ALL entities in structured format:
-- Person names (full name as written)
-- Date of birth (YYYY-MM-DD)
-- Document/Registration numbers
-- Issue and Expiry dates
-- Addresses (complete)
-- Contact info (phone/email)
-- Monetary values (amounts with currency)
-- Signatories and Witnesses
-- Organization names
-- Jurisdiction
-
-### 3. Forensic Checks
-- Check for font inconsistencies
-- Detect digital tampering traces
-- Verify checksums of ID numbers (if applicable logic is known)
-- Validate logical consistency of dates (e.g., Issue Date < Expiry Date)
-
-## 🔄 LAYER 2: CROSS-VALIDATION (Between Documents)
-
-Compare specific fields across ALL documents (e.g. Document 1 vs Document 2).
-For each common field (Name, DOB, Address, etc.):
-- Determine `match_status`: EXACT_MATCH, PARTIAL_MATCH, MISMATCH, MISSING
-- Calculate `confidence` score for the match
-- Add `notes` explaining any discrepancy
-
-## 📊 LAYER 3: RISK ASSESSMENT
-
-- Determine `verification_status`: VERIFIED, SUSPECTED, REJECTED
-- Assign `risk_level`: LOW, MEDIUM, HIGH, CRITICAL
-- Summarize red flags, discrepancies, and missing info
-
----
-
-## 📤 OUTPUT FORMAT
-You must return a single JSON object that strictly adheres to the schema of the `VerificationReport` model provided below.
-Ensure all boolean values are true/false (lowercase in JSON), and floats are numbers.
-
-SCHEMA STRUCTURE:
-{{
-  "is_completely_verified": bool,
-  "overall_confidence": float (0-100),
-  "verification_status": "VERIFIED" | "SUSPECTED" | "REJECTED",
-  "risk_level": "LOW" | "MEDIUM" | "HIGH" | "CRITICAL",
-  "document_1_analysis": {{ ... }},
-  "document_2_analysis": {{ ... }} (if applicable),
-  "document_3_analysis": {{ ... }} (if applicable),
-  "cross_validations": [
-    {{
-      "field_name": "Name",
-      "document_1_value": "John Doe",
-      "document_2_value": "Jon Doe",
-      "match_status": "PARTIAL_MATCH",
-      "confidence": 85.0,
-      "notes": "Minor spelling difference"
-    }}
-  ],
-  "total_checks": int,
-  "passed_checks": int,
-  "failed_checks": int,
-  "warning_checks": int,
-  "exact_matches": ["List of field names"],
-  "partial_matches": ["List of field names"],
-  "discrepancies": ["Description of discrepancies"],
-  "missing_information": ["List of missing fields"],
-  "red_flags": ["List of major issues"],
-  "verification_summary": "Executive summary of findings",
-  "recommendations": "Actionable advice",
-  "next_steps": ["Step 1", "Step 2"],
-  "processing_timestamp": "ISO 8601 string",
-  "gemini_model_used": "gemini-flash-latest"
-}}
+Now analyze the documents and return your response.
 """
-    return prompt
 
-# ============== ENDPOINTS ==============
+def pdf_to_base64(file_path: str) -> str:
+    """Convert PDF file to base64 string"""
+    with open(file_path, "rb") as pdf_file:
+        return base64.b64encode(pdf_file.read()).decode("utf-8")
 
-@app.post("/analyze-documents", response_model=VerificationReport)
-async def analyze_documents(
-    files: List[UploadFile] = File(...),
-    user_id: Optional[str] = Header(None),
-    db: Session = Depends(get_db)
-):
-    """
-    Uploads multiple documents (PDFs/Images) and performs AI-powered cross-validation.
-    Tracks user activity and stores validation results in database.
-    """
-    start_time = time.time()
-    
-    # Generate Validation ID
-    validation_id = f"VAL_{datetime.now().strftime('%Y%m%d')}_{uuid.uuid4().hex[:8]}"
-    
-    # Handle user tracking
-    if not user_id:
-        user_id = "guest_user"
-    
+def analyze_with_gemini(jamabandi_path: str, deed_path: str) -> dict:
+    """Send PDFs to Gemini and get analysis"""
     try:
-        # Create/Update user
-        crud.get_or_create_user(db, user_id)
+        # Initialize Gemini model
+        # Using gemini-1.5-pro as fallback for flash
+        model = genai.GenerativeModel("gemini-1.5-pro")
         
-        # Create initial validation record
-        crud.create_validation(db, validation_id, user_id, len(files))
+        # Convert PDFs to base64
+        jamabandi_data = pdf_to_base64(jamabandi_path)
+        deed_data = pdf_to_base64(deed_path)
         
-    except Exception as e:
-        logger.error(f"Database error during user/validation creation: {e}")
-        # Continue execution even if DB logging fails, but log it
-    
-    if not GEMINI_API_KEY:
-        error_msg = "Gemini API Key is not configured on the server."
-        crud.log_api_request(db, "/analyze-documents", "POST", user_id, 500, time.time() - start_time)
-        raise HTTPException(status_code=500, detail=error_msg)
-
-    if len(files) < 1:
-        crud.log_api_request(db, "/analyze-documents", "POST", user_id, 400, time.time() - start_time)
-        raise HTTPException(status_code=400, detail="At least one document is required for analysis.")
-
-    temp_files = []
-    gemini_files = []
-    
-    try:
-        # 1. Save uploaded files to temp and upload to Gemini
-        for file in files:
-            # Create a temp file
-            suffix = os.path.splitext(file.filename)[1]
-            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                content = await file.read()
-                tmp.write(content)
-                tmp_path = tmp.name
-                temp_files.append(tmp_path)
-            
-            # Determine MIME type (optional, but good for Gemini)
-            mime_type = magic.from_file(tmp_path, mime=True)
-            
-            # Upload to Gemini
-            logger.info(f"Uploading {file.filename} to Gemini...")
-            myfile = genai.upload_file(tmp_path, mime_type=mime_type, display_name=file.filename)
-            gemini_files.append(myfile)
-
-        # 2. Wait for files to be processed (Active)
-        logger.info("Waiting for file processing...")
-        for myfile in gemini_files:
-            while myfile.state.name == "PROCESSING":
-                time.sleep(2)
-                myfile = genai.get_file(myfile.name)
-            
-            if myfile.state.name == "FAILED":
-                raise HTTPException(status_code=500, detail=f"Gemini failed to process file: {myfile.display_name}")
-
-        # 3. Generate Content
-        file_names = [f.display_name for f in gemini_files]
-        prompt = build_master_prompt(file_names)
+        # Prepare content for Gemini
+        contents = [
+            {
+                "mime_type": "application/pdf",
+                "data": jamabandi_data
+            },
+            {
+                "mime_type": "application/pdf",
+                "data": deed_data
+            },
+            ANALYSIS_PROMPT
+        ]
         
-        logger.info("Generating analysis...")
+        # Call Gemini API
         response = model.generate_content(
-            contents=[prompt] + gemini_files
+            contents,
+            generation_config={
+                "temperature": 0.1,
+                "top_p": 0.95,
+                "max_output_tokens": 8192,
+            }
         )
         
-        # 4. Parse Response
-        try:
-            # Clean up response text if it contains markdown code blocks
-            text = response.text
-            if text.startswith("```json"):
-                text = text.replace("```json", "").replace("```", "")
-            elif text.startswith("```"):
-                text = text.replace("```", "")
-                
-            report_data = json.loads(text)
-            
-            # Add validation_id to report
-            report_data["validation_id"] = validation_id
-            
-            # Validate with Pydantic
-            report = VerificationReport(**report_data)
-            
-            # Update database with results
-            try:
-                crud.update_validation(db, validation_id, report_data)
-                crud.log_api_request(db, "/analyze-documents", "POST", user_id, 200, time.time() - start_time)
-            except Exception as e:
-                logger.error(f"Database update error: {e}")
-
-            return report
-            
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON: {e}")
-            logger.error(f"Raw response: {response.text}")
-            crud.log_api_request(db, "/analyze-documents", "POST", user_id, 500, time.time() - start_time)
-            raise HTTPException(status_code=500, detail="AI returned invalid JSON format")
-        except Exception as e:
-            logger.error(f"Validation error: {e}")
-            crud.log_api_request(db, "/analyze-documents", "POST", user_id, 500, time.time() - start_time)
-            raise HTTPException(status_code=500, detail=f"Data validation error: {str(e)}")
-
+        # Extract text response
+        response_text = response.text.strip()
+        
+        # Remove markdown code blocks if present
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.startswith("```"):
+            response_text = response_text[3:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+        response_text = response_text.strip()
+        
+        # Parse JSON
+        result = json.loads(response_text)
+        
+        # LOGGING RAW RESPONSE FOR DEBUGGING
+        print("======== GEMINI RAW RESPONSE ========")
+        print(json.dumps(result, indent=2))
+        print("=====================================")
+        
+        return {
+            "success": True,
+            "data": result,
+            "raw_response": response.text
+        }
+        
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": "Failed to parse Gemini response as JSON",
+            "raw_response": response.text if 'response' in locals() else None,
+            "details": str(e)
+        }
     except Exception as e:
-        logger.error(f"Error processing documents: {e}")
-        crud.log_api_request(db, "/analyze-documents", "POST", user_id, 500, time.time() - start_time)
-        raise HTTPException(status_code=500, detail=str(e))
-        
-    finally:
-        # Cleanup: Delete temp files
-        for path in temp_files:
-            try:
-                os.unlink(path)
-            except Exception:
-                pass
-        
-        # Cleanup: Delete Gemini files (optional, but good practice to manage storage)
-        # Note: In a real app, you might want to keep them or manage lifecycle differently
-        for myfile in gemini_files:
-            try:
-                genai.delete_file(myfile.name)
-            except Exception:
-                pass
+        return {
+            "success": False,
+            "error": str(e),
+            "details": "Gemini API call failed"
+        }
 
-@app.get("/api/history/{user_id}")
-async def get_user_history(user_id: str, db: Session = Depends(get_db)):
-    """Get validation history for a user"""
-    validations = crud.get_user_validations(db, user_id)
-    return {"user_id": user_id, "validations": validations}
+@app.post("/analyze")
+async def analyze_documents(
+    jamabandi: UploadFile = File(..., description="Jamabandi PDF file"),
+    deed: UploadFile = File(..., description="Deed PDF file")
+):
+    """
+    Upload Jamabandi and Deed PDFs for Gemini analysis
+    
+    Returns:
+    - Extracted data from both documents
+    - Validation results
+    - Decision (approved/needs_review/rejected)
+    """
+    
+    # Validate file types
+    if not jamabandi.filename.endswith('.pdf'):
+        raise HTTPException(400, "Jamabandi must be a PDF file")
+    if not deed.filename.endswith('.pdf'):
+        raise HTTPException(400, "Deed must be a PDF file")
+    
+    # Save uploaded files temporarily
+    jamabandi_path = TEMP_DIR / f"jamabandi_{os.urandom(8).hex()}.pdf"
+    deed_path = TEMP_DIR / f"deed_{os.urandom(8).hex()}.pdf"
+    
+    try:
+        # Save files
+        with open(jamabandi_path, "wb") as buffer:
+            shutil.copyfileobj(jamabandi.file, buffer)
+        
+        with open(deed_path, "wb") as buffer:
+            shutil.copyfileobj(deed.file, buffer)
+        
+        # Analyze with Gemini
+        result = analyze_with_gemini(str(jamabandi_path), str(deed_path))
+        
+        return result
+        
+    except Exception as e:
+        raise HTTPException(500, f"Analysis failed: {str(e)}")
+    
+    finally:
+        # Clean up temporary files
+        if jamabandi_path.exists():
+            jamabandi_path.unlink()
+        if deed_path.exists():
+            deed_path.unlink()
+
+@app.get("/")
+def root():
+    """API Info"""
+    return {
+        "name": "PDF Gemini Analyzer",
+        "version": "1.0.0",
+        "endpoints": {
+            "POST /analyze": "Upload jamabandi and deed PDFs for analysis"
+        }
+    }
 
 @app.get("/health")
-async def health_check(db: Session = Depends(get_db)):
-    try:
-        db.execute("SELECT 1")
-        db_status = "connected"
-    except Exception as e:
-        logger.error(f"Health check DB error: {e}")
-        db_status = "disconnected"
-    return {"status": "healthy", "database": db_status}
+def health():
+    """Health check"""
+    gemini_status = "configured" if GEMINI_API_KEY else "not_configured"
+    return {
+        "status": "running",
+        "gemini_api": gemini_status
+    }
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# Run with: uvicorn main:app --reload --port 8000

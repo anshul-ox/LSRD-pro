@@ -1,7 +1,17 @@
-fastapi
-uvicorn
-python-multipart
-google-generativeai
-python-magic-bin; sys_platform == 'win32'
-python-magic; sys_platform != 'win32'
-sqlalchemy
+# FastAPI and Server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+
+# File Upload Support
+python-multipart>=0.0.9
+
+# Google Gemini AI
+google-generativeai>=0.8.0
+
+# Environment Variables
+python-dotenv>=1.0.1
+
+# Additional Utilities (optional but recommended)
+# Uncomment if you need these features:
+# pillow>=10.2.0  # For advanced image processing
+# pypdf>=4.0.0    # For PDF manipulation
